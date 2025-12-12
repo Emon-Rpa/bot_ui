@@ -47,6 +47,57 @@ body {
     height: 100vh;
 }
 
+/* Platform Tabs */
+.platform-tabs {
+    display: flex;
+    padding: 12px;
+    gap: 8px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.platform-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.85rem;
+}
+
+.platform-tab:hover {
+    background: rgba(124, 77, 255, 0.15);
+    border-color: var(--accent-primary);
+}
+
+.platform-tab.active {
+    background: var(--accent-gradient);
+    border-color: var(--accent-primary);
+    color: white;
+    box-shadow: var(--shadow);
+}
+
+.platform-tab .tab-icon {
+    font-size: 1.5rem;
+}
+
+.platform-tab .tab-label {
+    font-weight: 500;
+}
+
+.platform-tab .tab-count {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
 .sidebar-header {
     padding: 24px 20px;
     border-bottom: 1px solid var(--border-color);

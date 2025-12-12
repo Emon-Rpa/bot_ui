@@ -1,4 +1,5 @@
 // API endpoints
+const API_PLATFORMS = '/api/platforms';
 const API_GROUPS = '/api/groups';
 const API_MESSAGES = '/api/messages';
 
@@ -10,165 +11,250 @@ const errorElement = document.getElementById('error');
 const messagesContainer = document.getElementById('messagesContainer');
 const groupsList = document.getElementById('groupsList');
 const groupCount = document.getElementById('groupCount');
+const sidebarTitle = document.getElementById('sidebarTitle');
+const messengerTab = document.getElementById('messengerTab');
+const whatsappTab = document.getElementById('whatsappTab');
+const messengerCount = document.getElementById('messengerCount');
+const whatsappCount = document.getElementById('whatsappCount');
 
 // State
-let currentGroup = null;
-let allGroups = [];
+let currentPlatform = 'messenger';
+let currentItem = null;
+let allItems = [];
 
 // Initialize app
 async function init() {
-    await loadGroups();
+    await loadPlatforms();
+    setupPlatformTabs();
 }
 
-// Load all groups
-async function loadGroups() {
+// Load platform counts
+async function loadPlatforms() {
     try {
-        const response = await fetch(API_GROUPS);
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch groups');
-        }
+        const response = await fetch(API_PLATFORMS);
+        if (!response.ok) throw new Error('Failed to fetch platforms');
 
         const data = await response.json();
-        allGroups = data.groups || [];
+        const platforms = data.platforms || [];
 
-        // Update group count
-        groupCount.textContent = `${allGroups.length} group${allGroups.length !== 1 ? 's' : ''}`;
+        // Update counts
+        platforms.forEach(platform => {
+            if (platform.name === 'messenger') {
+                messengerCount.textContent = platform.count;
+            } else if (platform.name === 'whatsapp') {
+                whatsappCount.textContent = platform.count;
+            }
+        });
 
-        // Render groups list
-        renderGroupsList();
+        // Load default platform
+        await switchPlatform(currentPlatform);
 
-        // Load first group by default if available
-        if (allGroups.length > 0) {
-            loadGroup(allGroups[0].Title);
+    } catch (error) {
+        console.error('Error loading platforms:', error);
+    }
+}
+
+// Setup platform tab click handlers
+function setupPlatformTabs() {
+    messengerTab.addEventListener('click', () => switchPlatform('messenger'));
+    whatsappTab.addEventListener('click', () => switchPlatform('whatsapp'));
+}
+
+// Switch between platforms
+async function switchPlatform(platform) {
+    currentPlatform = platform;
+    currentItem = null;
+
+    // Update active tab
+    document.querySelectorAll('.platform-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    if (platform === 'messenger') {
+        messengerTab.classList.add('active');
+        sidebarTitle.textContent = 'Message Groups';
+    } else {
+        whatsappTab.classList.add('active');
+        sidebarTitle.textContent = 'WhatsApp Channels';
+    }
+
+    // Load items for this platform
+    await loadItems();
+}
+
+// Load groups/channels for current platform
+async function loadItems() {
+    try {
+        const response = await fetch(`${API_GROUPS}?platform=${currentPlatform}`);
+        if (!response.ok) throw new Error('Failed to fetch items');
+
+        const data = await response.json();
+
+        if (currentPlatform === 'messenger') {
+            allItems = data.groups || [];
+            groupCount.textContent = `${allItems.length} group${allItems.length !== 1 ? 's' : ''}`;
+        } else {
+            allItems = data.channels || [];
+            groupCount.textContent = `${allItems.length} channel${allItems.length !== 1 ? 's' : ''}`;
+        }
+
+        renderItemsList();
+
+        // Load first item by default
+        if (allItems.length > 0) {
+            const identifier = currentPlatform === 'messenger'
+                ? allItems[0].Title
+                : allItems[0].Source_name;
+            loadItem(identifier);
         } else {
             loadingElement.style.display = 'none';
+            messagesContainer.innerHTML = '<div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">No data available</div>';
         }
 
     } catch (error) {
-        console.error('Error loading groups:', error);
+        console.error('Error loading items:', error);
         loadingElement.style.display = 'none';
         errorElement.style.display = 'block';
-        errorElement.querySelector('p').textContent = 'Failed to load groups. Please try again.';
     }
 }
 
-// Render groups list in sidebar
-function renderGroupsList() {
+// Render items list in sidebar
+function renderItemsList() {
     groupsList.innerHTML = '';
 
-    if (allGroups.length === 0) {
-        groupsList.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No groups yet</div>';
+    if (allItems.length === 0) {
+        groupsList.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No items yet</div>';
         return;
     }
 
-    allGroups.forEach(group => {
-        const groupItem = createGroupItem(group);
-        groupsList.appendChild(groupItem);
+    allItems.forEach(item => {
+        const itemElement = createItemElement(item);
+        groupsList.appendChild(itemElement);
     });
 }
 
-// Create a group item element
-function createGroupItem(group) {
-    const item = document.createElement('div');
-    item.className = 'group-item';
-    if (currentGroup === group.Title) {
-        item.classList.add('active');
+// Create item element for sidebar
+function createItemElement(item) {
+    const element = document.createElement('div');
+    element.className = 'group-item';
+
+    const identifier = currentPlatform === 'messenger' ? item.Title : item.Source_name;
+    if (currentItem === identifier) {
+        element.classList.add('active');
     }
 
     const title = document.createElement('div');
     title.className = 'group-title';
-    title.textContent = group.Title || 'Untitled';
+    title.textContent = identifier || 'Untitled';
 
     const subtitle = document.createElement('div');
     subtitle.className = 'group-subtitle';
-    subtitle.textContent = group.Sub_Title || 'No description';
+
+    if (currentPlatform === 'messenger') {
+        subtitle.textContent = item.Sub_Title || 'No description';
+    } else {
+        subtitle.textContent = `${item.Followers || '0'} followers`;
+    }
 
     const meta = document.createElement('div');
     meta.className = 'group-meta';
+
+    const count = currentPlatform === 'messenger' ? item.message_count : item.post_count;
+    const label = currentPlatform === 'messenger' ? 'messages' : 'posts';
+
     meta.innerHTML = `
-        <span>${group.message_count || 0} messages</span>
-        <span>${group.last_updated ? formatDate(group.last_updated) : ''}</span>
+        <span>${count || 0} ${label}</span>
+        <span>${item.last_updated ? formatDate(item.last_updated) : ''}</span>
     `;
 
-    item.appendChild(title);
-    item.appendChild(subtitle);
-    item.appendChild(meta);
+    element.appendChild(title);
+    element.appendChild(subtitle);
+    element.appendChild(meta);
 
-    // Click handler
-    item.addEventListener('click', () => {
-        loadGroup(group.Title);
-    });
+    element.addEventListener('click', () => loadItem(identifier));
 
-    return item;
+    return element;
 }
 
-// Load a specific group
-async function loadGroup(title) {
+// Load specific item (group or channel)
+async function loadItem(identifier) {
     try {
-        currentGroup = title;
+        currentItem = identifier;
 
-        // Update active state in sidebar
+        // Update active state
         document.querySelectorAll('.group-item').forEach(item => {
             item.classList.remove('active');
         });
 
-        // Show loading
         loadingElement.style.display = 'block';
         messagesContainer.innerHTML = '';
         errorElement.style.display = 'none';
 
-        const response = await fetch(`${API_MESSAGES}?title=${encodeURIComponent(title)}`);
+        const param = currentPlatform === 'messenger' ? 'title' : 'source';
+        const response = await fetch(`${API_MESSAGES}?platform=${currentPlatform}&${param}=${encodeURIComponent(identifier)}`);
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch messages');
-        }
+        if (!response.ok) throw new Error('Failed to fetch data');
 
         const data = await response.json();
 
         // Update header
-        titleElement.textContent = data.Title || 'Messages';
-        subtitleElement.textContent = data.Sub_Title || '';
+        if (currentPlatform === 'messenger') {
+            titleElement.textContent = data.Title || 'Messages';
+            subtitleElement.textContent = data.Sub_Title || '';
+            renderMessages(data.messages || []);
+        } else {
+            titleElement.textContent = data.Source_name || 'Channel';
+            subtitleElement.textContent = `${data.Followers || '0'} followers`;
+            renderPosts(data.posts || []);
+        }
 
-        // Hide loading
         loadingElement.style.display = 'none';
-
-        // Render messages
-        renderMessages(data.messages || []);
-
-        // Update active group in sidebar
-        renderGroupsList();
+        renderItemsList();
 
     } catch (error) {
-        console.error('Error loading group:', error);
+        console.error('Error loading item:', error);
         loadingElement.style.display = 'none';
         errorElement.style.display = 'block';
-        errorElement.querySelector('p').textContent = 'Failed to load messages. Please try again.';
     }
 }
 
-// Render all messages
+// Render Messenger messages
 function renderMessages(messages) {
     messagesContainer.innerHTML = '';
 
     if (messages.length === 0) {
-        messagesContainer.innerHTML = '<div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">No messages in this group</div>';
+        messagesContainer.innerHTML = '<div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">No messages</div>';
         return;
     }
 
     messages.forEach((message, index) => {
-        const messageCard = createMessageCard(message, index);
-        messagesContainer.appendChild(messageCard);
+        const card = createMessageCard(message, index);
+        messagesContainer.appendChild(card);
     });
 }
 
-// Create a message card element
+// Render WhatsApp posts
+function renderPosts(posts) {
+    messagesContainer.innerHTML = '';
+
+    if (posts.length === 0) {
+        messagesContainer.innerHTML = '<div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">No posts</div>';
+        return;
+    }
+
+    posts.forEach((post, index) => {
+        const card = createPostCard(post, index);
+        messagesContainer.appendChild(card);
+    });
+}
+
+// Create Messenger message card
 function createMessageCard(message, index) {
     const card = document.createElement('div');
     card.className = 'message-card';
     card.style.animationDelay = `${index * 0.05}s`;
 
-    // User info section
+    // User info
     const userInfo = document.createElement('div');
     userInfo.className = 'user-info';
 
@@ -203,10 +289,12 @@ function createMessageCard(message, index) {
         card.appendChild(messageText);
     }
 
-    // Media gallery
+    // Media
     if (message.media && message.media.length > 0) {
         const mediaGallery = createMediaGallery(message.media);
-        card.appendChild(mediaGallery);
+        if (mediaGallery.children.length > 0) {
+            card.appendChild(mediaGallery);
+        }
     }
 
     // Reactions
@@ -218,12 +306,80 @@ function createMessageCard(message, index) {
     return card;
 }
 
+// Create WhatsApp post card
+function createPostCard(post, index) {
+    const card = document.createElement('div');
+    card.className = 'message-card';
+    card.style.animationDelay = `${index * 0.05}s`;
+
+    // Post header (time and reaction count)
+    const header = document.createElement('div');
+    header.className = 'user-info';
+    header.style.marginBottom = '12px';
+
+    const timeDiv = document.createElement('div');
+    timeDiv.className = 'user-details';
+    timeDiv.style.flex = '1';
+
+    const time = document.createElement('div');
+    time.className = 'timestamp';
+    time.textContent = post.Post_time || '';
+    timeDiv.appendChild(time);
+
+    const reactionDiv = document.createElement('div');
+    reactionDiv.style.display = 'flex';
+    reactionDiv.style.alignItems = 'center';
+    reactionDiv.style.gap = '6px';
+
+    if (post.Post_reaction) {
+        const reactionIcon = document.createElement('span');
+        reactionIcon.textContent = '❤️';
+        reactionIcon.style.fontSize = '1.1rem';
+
+        const reactionCount = document.createElement('span');
+        reactionCount.className = 'reaction-count';
+        reactionCount.textContent = post.Post_reaction;
+
+        reactionDiv.appendChild(reactionIcon);
+        reactionDiv.appendChild(reactionCount);
+    }
+
+    header.appendChild(timeDiv);
+    header.appendChild(reactionDiv);
+    card.appendChild(header);
+
+    // Post text
+    if (post.Post_text && post.Post_text.trim()) {
+        const postText = document.createElement('div');
+        postText.className = 'message-text';
+        postText.textContent = post.Post_text;
+        card.appendChild(postText);
+    }
+
+    // Post image
+    if (post.Post_image) {
+        const mediaGallery = document.createElement('div');
+        mediaGallery.className = 'media-gallery';
+
+        const img = document.createElement('img');
+        img.className = 'media-item';
+        img.src = post.Post_image;
+        img.alt = 'Post image';
+        img.loading = 'lazy';
+        img.addEventListener('click', () => window.open(post.Post_image, '_blank'));
+
+        mediaGallery.appendChild(img);
+        card.appendChild(mediaGallery);
+    }
+
+    return card;
+}
+
 // Create media gallery
 function createMediaGallery(mediaUrls) {
     const gallery = document.createElement('div');
     gallery.className = 'media-gallery';
 
-    // Filter out emoji URLs (they're very small and not actual media)
     const actualMedia = mediaUrls.filter(url =>
         !url.includes('emoji.php') &&
         (url.includes('.jpg') || url.includes('.png') || url.includes('.jpeg') || url.includes('.gif'))
@@ -235,22 +391,17 @@ function createMediaGallery(mediaUrls) {
         img.src = url;
         img.alt = 'Media';
         img.loading = 'lazy';
-
-        // Open image in new tab on click
-        img.addEventListener('click', () => {
-            window.open(url, '_blank');
-        });
-
+        img.addEventListener('click', () => window.open(url, '_blank'));
         gallery.appendChild(img);
     });
 
     return gallery;
 }
 
-// Create reactions section
+// Create reactions
 function createReactions(reactions) {
-    const reactionsContainer = document.createElement('div');
-    reactionsContainer.className = 'reactions';
+    const container = document.createElement('div');
+    container.className = 'reactions';
 
     Object.entries(reactions).forEach(([emoji, count]) => {
         const badge = document.createElement('div');
@@ -266,23 +417,19 @@ function createReactions(reactions) {
 
         badge.appendChild(emojiSpan);
         badge.appendChild(countSpan);
-        reactionsContainer.appendChild(badge);
+        container.appendChild(badge);
     });
 
-    return reactionsContainer;
+    return container;
 }
 
-// Format timestamp to readable format
+// Format timestamp
 function formatTimestamp(timestamp) {
     if (!timestamp) return '';
 
     try {
         const date = new Date(timestamp);
-
-        // Check if date is valid
-        if (isNaN(date.getTime())) {
-            return timestamp;
-        }
+        if (isNaN(date.getTime())) return timestamp;
 
         const now = new Date();
         const diffMs = now - date;
@@ -312,7 +459,7 @@ function formatTimestamp(timestamp) {
     }
 }
 
-// Format date for group meta
+// Format date for meta
 function formatDate(dateStr) {
     if (!dateStr) return '';
 
@@ -337,5 +484,5 @@ function formatDate(dateStr) {
     }
 }
 
-// Initialize app when DOM is ready
+// Initialize
 document.addEventListener('DOMContentLoaded', init);

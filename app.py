@@ -7,29 +7,52 @@ from datetime import datetime
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
-# Path to the all groups JSON file
-ALL_GROUPS_FILE = 'all_groups.json'
+# Platform storage files
+MESSENGER_FILE = 'messenger_groups.json'
+WHATSAPP_FILE = 'whatsapp_channels.json'
 
-def load_all_groups():
-    """Load all message groups from file"""
+def load_platform_data(platform):
+    """Load data for a specific platform"""
+    file_map = {
+        'messenger': MESSENGER_FILE,
+        'whatsapp': WHATSAPP_FILE
+    }
+    
+    file_path = file_map.get(platform.lower())
+    if not file_path:
+        return None
+    
     try:
-        if os.path.exists(ALL_GROUPS_FILE):
-            with open(ALL_GROUPS_FILE, 'r', encoding='utf-8') as f:
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         else:
-            return {"groups": []}
+            # Return empty structure based on platform
+            if platform.lower() == 'messenger':
+                return {"groups": []}
+            else:
+                return {"channels": []}
     except Exception as e:
-        print(f"Error loading groups: {e}")
-        return {"groups": []}
+        print(f"Error loading {platform} data: {e}")
+        return None
 
-def save_all_groups(data):
-    """Save all message groups to file"""
+def save_platform_data(platform, data):
+    """Save data for a specific platform"""
+    file_map = {
+        'messenger': MESSENGER_FILE,
+        'whatsapp': WHATSAPP_FILE
+    }
+    
+    file_path = file_map.get(platform.lower())
+    if not file_path:
+        return False
+    
     try:
-        with open(ALL_GROUPS_FILE, 'w', encoding='utf-8') as f:
+        with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
         return True
     except Exception as e:
-        print(f"Error saving groups: {e}")
+        print(f"Error saving {platform} data: {e}")
         return False
 
 @app.route('/')
@@ -37,93 +60,172 @@ def index():
     """Serve the main HTML page"""
     return send_from_directory('.', 'index.html')
 
+@app.route('/api/platforms', methods=['GET'])
+def get_platforms():
+    """Get list of available platforms"""
+    platforms = []
+    
+    # Check Messenger
+    messenger_data = load_platform_data('messenger')
+    if messenger_data:
+        platforms.append({
+            'name': 'messenger',
+            'display_name': 'Messenger',
+            'count': len(messenger_data.get('groups', []))
+        })
+    
+    # Check WhatsApp
+    whatsapp_data = load_platform_data('whatsapp')
+    if whatsapp_data:
+        platforms.append({
+            'name': 'whatsapp',
+            'display_name': 'WhatsApp',
+            'count': len(whatsapp_data.get('channels', []))
+        })
+    
+    return jsonify({'platforms': platforms})
+
 @app.route('/api/groups', methods=['GET'])
-def get_all_groups():
-    """Get list of all groups (titles only)"""
+def get_groups():
+    """Get list of groups/channels for a platform"""
+    platform = request.args.get('platform', 'messenger').lower()
+    
     try:
-        all_data = load_all_groups()
-        groups_list = [
-            {
-                "Title": group.get("Title", "Untitled"),
-                "Sub_Title": group.get("Sub_Title", ""),
-                "message_count": len(group.get("messages", [])),
-                "last_updated": group.get("last_updated", "")
-            }
-            for group in all_data.get("groups", [])
-        ]
-        return jsonify({"groups": groups_list})
+        data = load_platform_data(platform)
+        if not data:
+            return jsonify({'error': 'Invalid platform'}), 400
+        
+        if platform == 'messenger':
+            groups_list = [
+                {
+                    "Title": group.get("Title", "Untitled"),
+                    "Sub_Title": group.get("Sub_Title", ""),
+                    "message_count": len(group.get("messages", [])),
+                    "last_updated": group.get("last_updated", "")
+                }
+                for group in data.get("groups", [])
+            ]
+            return jsonify({"groups": groups_list})
+        
+        elif platform == 'whatsapp':
+            channels_list = [
+                {
+                    "Source_name": channel.get("Source_name", "Untitled"),
+                    "Source_link": channel.get("Source_link", ""),
+                    "post_count": len(channel.get("posts", [])),
+                    "Followers": channel.get("Followers", "0"),
+                    "Profile_picture": channel.get("Profile_picture", ""),
+                    "last_updated": channel.get("last_updated", "")
+                }
+                for channel in data.get("channels", [])
+            ]
+            return jsonify({"channels": channels_list})
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/messages', methods=['GET', 'POST'])
 def handle_messages():
     """API endpoint to get or update messages"""
+    platform = request.args.get('platform', 'messenger').lower()
     
     if request.method == 'GET':
-        # GET: Return all groups or specific group
+        # GET: Return specific group/channel
         try:
-            title = request.args.get('title')
-            all_data = load_all_groups()
+            identifier = request.args.get('title') or request.args.get('source')
+            data = load_platform_data(platform)
             
-            if title:
+            if not data:
+                return jsonify({'error': 'Invalid platform'}), 400
+            
+            if platform == 'messenger':
                 # Return specific group by title
-                for group in all_data.get("groups", []):
-                    if group.get("Title") == title:
+                for group in data.get("groups", []):
+                    if group.get("Title") == identifier:
                         return jsonify(group)
                 return jsonify({'error': 'Group not found'}), 404
-            else:
-                # Return all groups
-                return jsonify(all_data)
+            
+            elif platform == 'whatsapp':
+                # Return specific channel by source name
+                for channel in data.get("channels", []):
+                    if channel.get("Source_name") == identifier:
+                        return jsonify(channel)
+                return jsonify({'error': 'Channel not found'}), 404
                 
         except Exception as e:
             return jsonify({'error': str(e)}), 500
     
     elif request.method == 'POST':
-        # POST: Add or update a group (merge by Title)
+        # POST: Add or update a group/channel
         try:
-            # Get JSON data from request
-            new_group = request.get_json()
+            new_item = request.get_json()
             
-            # Validate required fields
-            if not new_group:
+            if not new_item:
                 return jsonify({'error': 'No JSON data provided'}), 400
             
-            if 'Title' not in new_group or 'messages' not in new_group:
-                return jsonify({'error': 'Invalid format. Required fields: Title, messages'}), 400
+            data = load_platform_data(platform)
+            if not data:
+                return jsonify({'error': 'Invalid platform'}), 400
             
-            # Load existing groups
-            all_data = load_all_groups()
-            groups = all_data.get("groups", [])
+            new_item['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
-            # Add timestamp
-            new_group['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            if platform == 'messenger':
+                # Messenger: use Title as unique identifier
+                if 'Title' not in new_item or 'messages' not in new_item:
+                    return jsonify({'error': 'Invalid format. Required: Title, messages'}), 400
+                
+                groups = data.get("groups", [])
+                group_exists = False
+                
+                for i, group in enumerate(groups):
+                    if group.get("Title") == new_item.get("Title"):
+                        groups[i] = new_item
+                        group_exists = True
+                        break
+                
+                if not group_exists:
+                    groups.insert(0, new_item)
+                
+                data["groups"] = groups
+                
+                if save_platform_data(platform, data):
+                    return jsonify({
+                        'success': True,
+                        'platform': 'messenger',
+                        'title': new_item.get('Title'),
+                        'message_count': len(new_item.get('messages', [])),
+                        'action': 'updated' if group_exists else 'created'
+                    }), 200
             
-            # Check if group with same Title exists
-            group_exists = False
-            for i, group in enumerate(groups):
-                if group.get("Title") == new_group.get("Title"):
-                    # Update existing group (replace it)
-                    groups[i] = new_group
-                    group_exists = True
-                    break
+            elif platform == 'whatsapp':
+                # WhatsApp: use Source_name as unique identifier
+                if 'Source_name' not in new_item or 'posts' not in new_item:
+                    return jsonify({'error': 'Invalid format. Required: Source_name, posts'}), 400
+                
+                channels = data.get("channels", [])
+                channel_exists = False
+                
+                for i, channel in enumerate(channels):
+                    if channel.get("Source_name") == new_item.get("Source_name"):
+                        channels[i] = new_item
+                        channel_exists = True
+                        break
+                
+                if not channel_exists:
+                    channels.insert(0, new_item)
+                
+                data["channels"] = channels
+                
+                if save_platform_data(platform, data):
+                    return jsonify({
+                        'success': True,
+                        'platform': 'whatsapp',
+                        'source_name': new_item.get('Source_name'),
+                        'post_count': len(new_item.get('posts', [])),
+                        'action': 'updated' if channel_exists else 'created'
+                    }), 200
             
-            # If group doesn't exist, add it to the beginning
-            if not group_exists:
-                groups.insert(0, new_group)
-            
-            # Save updated data
-            all_data["groups"] = groups
-            if save_all_groups(all_data):
-                return jsonify({
-                    'success': True,
-                    'message': 'Group saved successfully',
-                    'title': new_group.get('Title'),
-                    'message_count': len(new_group.get('messages', [])),
-                    'total_groups': len(groups),
-                    'action': 'updated' if group_exists else 'created'
-                }), 200
-            else:
-                return jsonify({'error': 'Failed to save data'}), 500
+            return jsonify({'error': 'Failed to save data'}), 500
             
         except json.JSONDecodeError:
             return jsonify({'error': 'Invalid JSON format'}), 400
@@ -136,6 +238,6 @@ def serve_static(path):
     return send_from_directory('.', path)
 
 if __name__ == '__main__':
-    print(f"Starting server...")
+    print(f"Starting Multi-Platform Message Viewer...")
     print(f"Open your browser at: http://localhost:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)

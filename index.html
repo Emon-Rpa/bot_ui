@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Message Viewer</title>
+    <title>Multi-Platform Message Viewer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -15,14 +15,28 @@
 
 <body>
     <div class="app-container">
-        <!-- Sidebar for group list -->
+        <!-- Sidebar for group/channel list -->
         <aside class="sidebar" id="sidebar">
+            <!-- Platform Tabs -->
+            <div class="platform-tabs">
+                <button class="platform-tab active" data-platform="messenger" id="messengerTab">
+                    <span class="tab-icon">💬</span>
+                    <span class="tab-label">Messenger</span>
+                    <span class="tab-count" id="messengerCount">0</span>
+                </button>
+                <button class="platform-tab" data-platform="whatsapp" id="whatsappTab">
+                    <span class="tab-icon">📱</span>
+                    <span class="tab-label">WhatsApp</span>
+                    <span class="tab-count" id="whatsappCount">0</span>
+                </button>
+            </div>
+
             <div class="sidebar-header">
-                <h2>Message Groups</h2>
+                <h2 id="sidebarTitle">Message Groups</h2>
                 <div class="group-count" id="groupCount">0 groups</div>
             </div>
             <div class="groups-list" id="groupsList">
-                <!-- Groups will be dynamically inserted here -->
+                <!-- Groups/Channels will be dynamically inserted here -->
             </div>
         </aside>
 
@@ -31,22 +45,22 @@
             <div class="container">
                 <header class="header">
                     <div class="header-content">
-                        <h1 id="title" class="title">Select a group</h1>
+                        <h1 id="title" class="title">Select a group or channel</h1>
                         <p id="subtitle" class="subtitle">Choose from the sidebar</p>
                     </div>
                 </header>
 
                 <div class="loading" id="loading">
                     <div class="spinner"></div>
-                    <p>Loading messages...</p>
+                    <p>Loading...</p>
                 </div>
 
                 <div class="error" id="error" style="display: none;">
-                    <p>Failed to load messages. Please try again.</p>
+                    <p>Failed to load data. Please try again.</p>
                 </div>
 
                 <div class="messages-container" id="messagesContainer">
-                    <!-- Messages will be dynamically inserted here -->
+                    <!-- Messages/Posts will be dynamically inserted here -->
                 </div>
             </div>
         </main>
