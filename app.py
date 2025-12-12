@@ -238,6 +238,8 @@ def serve_static(path):
     return send_from_directory('.', path)
 
 if __name__ == '__main__':
+    import os
+    port = int(os.environ.get('PORT', 5000))
     print(f"Starting Multi-Platform Message Viewer...")
-    print(f"Open your browser at: http://localhost:5000")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    print(f"Server will run on port {port}")
+    app.run(debug=False, host='0.0.0.0', port=port)
