@@ -356,17 +356,41 @@ function createPostCard(post, index) {
         card.appendChild(postText);
     }
 
-    // Post image
+    // Post image (with error handling)
     if (post.Post_image) {
         const mediaGallery = document.createElement('div');
         mediaGallery.className = 'media-gallery';
 
         const img = document.createElement('img');
         img.className = 'media-item';
-        img.src = post.Post_image;
         img.alt = 'Post image';
         img.loading = 'lazy';
-        img.addEventListener('click', () => window.open(post.Post_image, '_blank'));
+
+        // Handle image load error
+        img.onerror = function () {
+            // Replace with placeholder or hide
+            this.style.display = 'none';
+            const placeholder = document.createElement('div');
+            placeholder.className = 'media-item';
+            placeholder.style.display = 'flex';
+            placeholder.style.alignItems = 'center';
+            placeholder.style.justifyContent = 'center';
+            placeholder.style.background = 'rgba(124, 77, 255, 0.1)';
+            placeholder.style.color = 'var(--text-secondary)';
+            placeholder.style.fontSize = '0.9rem';
+            placeholder.textContent = '📷 Image not available';
+            mediaGallery.appendChild(placeholder);
+        };
+
+        // Set image source
+        img.src = post.Post_image;
+
+        // Click to open (only if image loads successfully)
+        img.addEventListener('click', () => {
+            if (img.complete && img.naturalHeight !== 0) {
+                window.open(post.Post_image, '_blank');
+            }
+        });
 
         mediaGallery.appendChild(img);
         card.appendChild(mediaGallery);
