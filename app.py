@@ -156,7 +156,7 @@ def handle_messages():
             return jsonify({'error': str(e)}), 500
     
     elif request.method == 'POST':
-        # POST: Add or update a group/channel
+        # POST: Append new messages to existing group/channel with duplicate detection
         try:
             new_item = request.get_json()
             
@@ -176,15 +176,40 @@ def handle_messages():
                 
                 groups = data.get("groups", [])
                 group_exists = False
+                new_messages = new_item.get('messages', [])
+                total_new = len(new_messages)
+                added_count = 0
+                duplicate_count = 0
                 
                 for i, group in enumerate(groups):
                     if group.get("Title") == new_item.get("Title"):
-                        groups[i] = new_item
                         group_exists = True
+                        existing_messages = group.get('messages', [])
+                        
+                        # Check for duplicates and append only new messages
+                        for new_msg in new_messages:
+                            is_duplicate = False
+                            for existing_msg in existing_messages:
+                                if (existing_msg.get('user_name') == new_msg.get('user_name') and
+                                    existing_msg.get('text') == new_msg.get('text') and
+                                    existing_msg.get('timestamp') == new_msg.get('timestamp')):
+                                    is_duplicate = True
+                                    duplicate_count += 1
+                                    break
+                            
+                            if not is_duplicate:
+                                existing_messages.append(new_msg)
+                                added_count += 1
+                        
+                        groups[i]['messages'] = existing_messages
+                        groups[i]['last_updated'] = new_item['last_updated']
+                        groups[i]['Sub_Title'] = new_item.get('Sub_Title', group.get('Sub_Title', ''))
                         break
                 
                 if not group_exists:
+                    # New group, add all messages
                     groups.insert(0, new_item)
+                    added_count = total_new
                 
                 data["groups"] = groups
                 
@@ -193,7 +218,9 @@ def handle_messages():
                         'success': True,
                         'platform': 'messenger',
                         'title': new_item.get('Title'),
-                        'message_count': len(new_item.get('messages', [])),
+                        'total_messages_sent': total_new,
+                        'messages_added': added_count,
+                        'duplicates_skipped': duplicate_count,
                         'action': 'updated' if group_exists else 'created'
                     }), 200
             
@@ -204,15 +231,43 @@ def handle_messages():
                 
                 channels = data.get("channels", [])
                 channel_exists = False
+                new_posts = new_item.get('posts', [])
+                total_new = len(new_posts)
+                added_count = 0
+                duplicate_count = 0
                 
                 for i, channel in enumerate(channels):
                     if channel.get("Source_name") == new_item.get("Source_name"):
-                        channels[i] = new_item
                         channel_exists = True
+                        existing_posts = channel.get('posts', [])
+                        
+                        # Check for duplicates and append only new posts
+                        for new_post in new_posts:
+                            is_duplicate = False
+                            for existing_post in existing_posts:
+                                if (existing_post.get('Post_text') == new_post.get('Post_text') and
+                                    existing_post.get('Post_time') == new_post.get('Post_time') and
+                                    existing_post.get('Post_image') == new_post.get('Post_image')):
+                                    is_duplicate = True
+                                    duplicate_count += 1
+                                    break
+                            
+                            if not is_duplicate:
+                                existing_posts.append(new_post)
+                                added_count += 1
+                        
+                        channels[i]['posts'] = existing_posts
+                        channels[i]['last_updated'] = new_item['last_updated']
+                        # Update other fields if provided
+                        for field in ['Source_link', 'Followers', 'Profile_picture']:
+                            if field in new_item:
+                                channels[i][field] = new_item[field]
                         break
                 
                 if not channel_exists:
+                    # New channel, add all posts
                     channels.insert(0, new_item)
+                    added_count = total_new
                 
                 data["channels"] = channels
                 
@@ -221,7 +276,9 @@ def handle_messages():
                         'success': True,
                         'platform': 'whatsapp',
                         'source_name': new_item.get('Source_name'),
-                        'post_count': len(new_item.get('posts', [])),
+                        'total_posts_sent': total_new,
+                        'posts_added': added_count,
+                        'duplicates_skipped': duplicate_count,
                         'action': 'updated' if channel_exists else 'created'
                     }), 200
             

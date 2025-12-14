@@ -227,7 +227,16 @@ function renderMessages(messages) {
         return;
     }
 
-    messages.forEach((message, index) => {
+    // Sort messages by timestamp descending (newest first)
+    // Using string comparison works because format is YYYY-MM-DD HH:MM:SS
+    const sortedMessages = messages.slice().sort((a, b) => {
+        const timeA = a.timestamp || '';
+        const timeB = b.timestamp || '';
+        if (timeA === timeB) return 0;
+        return timeA < timeB ? 1 : -1;
+    });
+
+    sortedMessages.forEach((message, index) => {
         const card = createMessageCard(message, index);
         messagesContainer.appendChild(card);
     });
@@ -242,7 +251,15 @@ function renderPosts(posts) {
         return;
     }
 
-    posts.forEach((post, index) => {
+    // Sort posts by scraping time descending (newest first)
+    const sortedPosts = posts.slice().sort((a, b) => {
+        const timeA = a.Post_scraping_time || '';
+        const timeB = b.Post_scraping_time || '';
+        if (timeA === timeB) return 0;
+        return timeA < timeB ? 1 : -1;
+    });
+
+    sortedPosts.forEach((post, index) => {
         const card = createPostCard(post, index);
         messagesContainer.appendChild(card);
     });
