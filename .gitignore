@@ -11,6 +11,7 @@ ENV/
 dist/
 build/
 
+
 # IDE
 .vscode/
 .idea/
@@ -32,3 +33,4 @@ migrate_data.log
 # Temporary files
 *.log
 *.tmp
+*.json
