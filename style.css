@@ -331,6 +331,23 @@ body {
     word-wrap: break-word;
 }
 
+/* Clickable links in messages */
+.message-link {
+    color: var(--accent-secondary);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(83, 109, 254, 0.3);
+    transition: all 0.3s ease;
+    word-break: break-all;
+}
+
+.message-link:hover {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+    background: rgba(124, 77, 255, 0.1);
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
 /* Media Gallery */
 .media-gallery {
     display: grid;

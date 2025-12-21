@@ -265,6 +265,26 @@ function renderPosts(posts) {
     });
 }
 
+// Helper function to convert URLs in text to clickable links
+function linkifyText(text) {
+    if (!text) return '';
+
+    // Regular expression to match URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+    // Escape HTML to prevent XSS attacks
+    const escapeHtml = (str) => {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    };
+
+    // Replace URLs with anchor tags
+    return escapeHtml(text).replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="message-link">${url}</a>`;
+    });
+}
+
 // Create Messenger message card
 function createMessageCard(message, index) {
     const card = document.createElement('div');
@@ -298,11 +318,11 @@ function createMessageCard(message, index) {
     userInfo.appendChild(userDetails);
     card.appendChild(userInfo);
 
-    // Message text
+    // Message text with clickable links
     if (message.text && message.text.trim()) {
         const messageText = document.createElement('div');
         messageText.className = 'message-text';
-        messageText.textContent = message.text;
+        messageText.innerHTML = linkifyText(message.text);
         card.appendChild(messageText);
     }
 
@@ -365,11 +385,11 @@ function createPostCard(post, index) {
     header.appendChild(reactionDiv);
     card.appendChild(header);
 
-    // Post text
+    // Post text with clickable links
     if (post.Post_text && post.Post_text.trim()) {
         const postText = document.createElement('div');
         postText.className = 'message-text';
-        postText.textContent = post.Post_text;
+        postText.innerHTML = linkifyText(post.Post_text);
         card.appendChild(postText);
     }
 
