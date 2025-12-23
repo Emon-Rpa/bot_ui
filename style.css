@@ -1,3 +1,15 @@
+html {
+    font-size: 20px;
+}
+
+@font-face {
+    font-family: 'Sohid Osman Hadi';
+    src: url('SohidOsmanHadi.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 :root {
     --bg-primary: #0a0e27;
     --bg-secondary: #151932;
@@ -20,7 +32,7 @@
 }
 
 body {
-    font-family: 'Noto Sans Bengali', 'Inter', sans-serif;
+    font-family: 'Sohid Osman Hadi', 'Noto Sans Bengali', 'Inter', sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
@@ -124,8 +136,12 @@ body {
     padding: 12px;
 }
 
-/* Group Item */
-.group-item {
+/* Sidebar Items (WhatsApp Channels / Messenger Channels) */
+.group-item,
+.channel-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     padding: 16px;
     margin-bottom: 8px;
     background: var(--bg-card);
@@ -136,25 +152,52 @@ body {
     transition: all 0.3s ease;
 }
 
-.group-item:hover {
+.group-item:hover,
+.channel-item:hover {
     background: rgba(124, 77, 255, 0.15);
     border-color: var(--accent-primary);
     transform: translateX(4px);
 }
 
-.group-item.active {
+.group-item.active,
+.channel-item.active {
     background: var(--accent-gradient);
     border-color: var(--accent-primary);
     box-shadow: var(--shadow-hover);
 }
 
+.group-content,
+.channel-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.group-icon-sidebar,
+.channel-icon-sidebar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--accent-primary);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.group-item.active .group-icon-sidebar,
+.channel-item.active .channel-icon-sidebar {
+    border-color: white;
+}
+
 .group-item.active .group-title,
 .group-item.active .group-subtitle,
-.group-item.active .group-meta {
+.group-item.active .group-meta,
+.channel-item.active .channel-title,
+.channel-item.active .channel-subtitle,
+.channel-item.active .channel-meta {
     color: white;
 }
 
-.group-title {
+.group-title,
+.channel-title {
     font-size: 1rem;
     font-weight: 600;
     color: var(--text-primary);
@@ -164,7 +207,8 @@ body {
     text-overflow: ellipsis;
 }
 
-.group-subtitle {
+.group-subtitle,
+.channel-subtitle {
     font-size: 0.85rem;
     color: var(--text-secondary);
     margin-bottom: 8px;
@@ -173,7 +217,8 @@ body {
     text-overflow: ellipsis;
 }
 
-.group-meta {
+.group-meta,
+.channel-meta {
     font-size: 0.75rem;
     color: var(--text-secondary);
     display: flex;
@@ -195,6 +240,9 @@ body {
 
 /* Header Styles */
 .header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
     padding: 40px 20px;
     margin-bottom: 40px;
@@ -203,6 +251,51 @@ body {
     border-radius: 20px;
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow);
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+    background: var(--accent-gradient);
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(124, 77, 255, 0.3);
+}
+
+.btn-icon {
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 3px solid var(--accent-primary);
+    margin-bottom: 16px;
+    object-fit: cover;
+    box-shadow: 0 4px 15px rgba(124, 77, 255, 0.3);
 }
 
 .title {

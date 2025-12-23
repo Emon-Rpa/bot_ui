@@ -25,11 +25,19 @@ def load_platform_data(platform):
     try:
         if os.path.exists(file_path):
             with open(file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                print(f"Loaded {platform} data: {data is not None}")
+                if data:
+                    print(f"Keys in {platform} data: {list(data.keys())}")
+                    if 'authors' in data:
+                        print(f"Number of authors: {len(data['authors'])}")
+                    if 'channels' in data:
+                        print(f"Number of channels: {len(data['channels'])}")
+                return data
         else:
             # Return empty structure based on platform
             if platform.lower() == 'messenger':
-                return {"groups": []}
+                return {"authors": []}
             else:
                 return {"channels": []}
     except Exception as e:
@@ -71,18 +79,21 @@ def get_platforms():
         platforms.append({
             'name': 'messenger',
             'display_name': 'Messenger',
-            'count': len(messenger_data.get('groups', []))
+            'count': len(messenger_data.get('authors', []))
         })
     
     # Check WhatsApp
     whatsapp_data = load_platform_data('whatsapp')
     if whatsapp_data:
+        channels = whatsapp_data.get('channels', [])
+        print(f"WhatsApp channels found: {len(channels)}")
         platforms.append({
             'name': 'whatsapp',
             'display_name': 'WhatsApp',
-            'count': len(whatsapp_data.get('channels', []))
+            'count': len(channels)
         })
     
+    print(f"Returning platforms: {[p['name'] for p in platforms]}")
     return jsonify({'platforms': platforms})
 
 @app.route('/api/groups', methods=['GET'])
@@ -96,16 +107,31 @@ def get_groups():
             return jsonify({'error': 'Invalid platform'}), 400
         
         if platform == 'messenger':
-            groups_list = [
-                {
-                    "Title": group.get("Title", "Untitled"),
-                    "Sub_Title": group.get("Sub_Title", ""),
-                    "message_count": len(group.get("messages", [])),
-                    "last_updated": group.get("last_updated", "")
+            # New nested structure: authors with channels
+            authors_list = []
+            for author in data.get("authors", []):
+                author_info = {
+                    "author_id": author.get("author_id", ""),
+                    "author_url": author.get("author_url", ""),
+                    "author_name": author.get("author_name", "Unknown Author"),
+                    "channels": []
                 }
-                for group in data.get("groups", [])
-            ]
-            return jsonify({"groups": groups_list})
+                
+                # Add channels under this author
+                for channel in author.get("channels", []):
+                    channel_info = {
+                        "source": channel.get("source", ""),
+                        "Title": channel.get("Title", "Untitled"),
+                        "Sub_Title": channel.get("Sub_Title", ""),
+                        "icon": channel.get("icon", ""),
+                        "message_count": len(channel.get("messages", [])),
+                        "last_updated": channel.get("last_updated", "")
+                    }
+                    author_info["channels"].append(channel_info)
+                
+                authors_list.append(author_info)
+            
+            return jsonify({"authors": authors_list})
         
         elif platform == 'whatsapp':
             channels_list = [
@@ -119,9 +145,14 @@ def get_groups():
                 }
                 for channel in data.get("channels", [])
             ]
+            print(f"Returning {len(channels_list)} WhatsApp channels")
             return jsonify({"channels": channels_list})
         
+        print(f"Unknown platform or no data for: {platform}")
+        return jsonify({'error': 'No data found for platform'}), 404
+        
     except Exception as e:
+        print(f"Error in get_groups: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/messages', methods=['GET', 'POST'])
@@ -132,21 +163,39 @@ def handle_messages():
     if request.method == 'GET':
         # GET: Return specific group/channel
         try:
-            identifier = request.args.get('title') or request.args.get('source')
             data = load_platform_data(platform)
             
             if not data:
                 return jsonify({'error': 'Invalid platform'}), 400
             
             if platform == 'messenger':
-                # Return specific group by title
-                for group in data.get("groups", []):
-                    if group.get("Title") == identifier:
-                        return jsonify(group)
-                return jsonify({'error': 'Group not found'}), 404
+                # New structure: use author_id and source to find channel
+                author_id = request.args.get('author_id')
+                source = request.args.get('source')
+                
+                if not author_id or not source:
+                    return jsonify({'error': 'author_id and source parameters required'}), 400
+                
+                # Find author by author_id
+                for author in data.get("authors", []):
+                    if author.get("author_id") == author_id:
+                        # Find channel by source within this author
+                        for channel in author.get("channels", []):
+                            if channel.get("source") == source:
+                                # Add author info to response
+                                response = channel.copy()
+                                response['author_name'] = author.get('author_name', '')
+                                response['author_id'] = author_id
+                                response['author_url'] = author.get('author_url', '')
+                                return jsonify(response)
+                        
+                        return jsonify({'error': 'Channel not found in author'}), 404
+                
+                return jsonify({'error': 'Author not found'}), 404
             
             elif platform == 'whatsapp':
                 # Return specific channel by source name
+                identifier = request.args.get('source')
                 for channel in data.get("channels", []):
                     if channel.get("Source_name") == identifier:
                         return jsonify(channel)
@@ -170,58 +219,109 @@ def handle_messages():
             new_item['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
             if platform == 'messenger':
-                # Messenger: use Title as unique identifier
-                if 'Title' not in new_item or 'messages' not in new_item:
-                    return jsonify({'error': 'Invalid format. Required: Title, messages'}), 400
+                # Messenger: use author_id and source as unique identifiers
+                if 'author_id' not in new_item or 'source' not in new_item or 'messages' not in new_item:
+                    return jsonify({'error': 'Invalid format. Required: author_id, source, messages'}), 400
                 
-                groups = data.get("groups", [])
-                group_exists = False
+                authors = data.get("authors", [])
+                author_exists = False
+                channel_exists = False
                 new_messages = new_item.get('messages', [])
                 total_new = len(new_messages)
                 added_count = 0
                 duplicate_count = 0
                 
-                for i, group in enumerate(groups):
-                    if group.get("Title") == new_item.get("Title"):
-                        group_exists = True
-                        existing_messages = group.get('messages', [])
+                author_id = new_item.get('author_id')
+                source = new_item.get('source')
+                
+                # Find or create author
+                for i, author in enumerate(authors):
+                    if author.get("author_id") == author_id:
+                        author_exists = True
+                        channels = author.get('channels', [])
                         
-                        # Check for duplicates and append only new messages
-                        for new_msg in new_messages:
-                            is_duplicate = False
-                            for existing_msg in existing_messages:
-                                if (existing_msg.get('user_name') == new_msg.get('user_name') and
-                                    existing_msg.get('text') == new_msg.get('text') and
-                                    existing_msg.get('timestamp') == new_msg.get('timestamp')):
-                                    is_duplicate = True
-                                    duplicate_count += 1
-                                    break
-                            
-                            if not is_duplicate:
-                                existing_messages.append(new_msg)
-                                added_count += 1
+                        # Find or create channel within author
+                        for j, channel in enumerate(channels):
+                            if channel.get("source") == source:
+                                channel_exists = True
+                                existing_messages = channel.get('messages', [])
+                                
+                                # Check for duplicates and append only new messages
+                                for new_msg in new_messages:
+                                    is_duplicate = False
+                                    for existing_msg in existing_messages:
+                                        if (existing_msg.get('user_name') == new_msg.get('user_name') and
+                                            existing_msg.get('text') == new_msg.get('text') and
+                                            existing_msg.get('timestamp') == new_msg.get('timestamp')):
+                                            is_duplicate = True
+                                            duplicate_count += 1
+                                            break
+                                    
+                                    if not is_duplicate:
+                                        existing_messages.append(new_msg)
+                                        added_count += 1
+                                
+                                channels[j]['messages'] = existing_messages
+                                channels[j]['last_updated'] = new_item['last_updated']
+                                channels[j]['Title'] = new_item.get('Title', channel.get('Title', ''))
+                                channels[j]['Sub_Title'] = new_item.get('Sub_Title', channel.get('Sub_Title', ''))
+                                if new_item.get('icon'):
+                                    channels[j]['icon'] = new_item['icon']
+                                break
                         
-                        groups[i]['messages'] = existing_messages
-                        groups[i]['last_updated'] = new_item['last_updated']
-                        groups[i]['Sub_Title'] = new_item.get('Sub_Title', group.get('Sub_Title', ''))
+                        if not channel_exists:
+                            # New channel in existing author
+                            new_channel = {
+                                'source': source,
+                                'Title': new_item.get('Title', ''),
+                                'Sub_Title': new_item.get('Sub_Title', ''),
+                                'icon': new_item.get('icon', ''),
+                                'messages': new_messages,
+                                'last_updated': new_item['last_updated']
+                            }
+                            channels.insert(0, new_channel)
+                            added_count = total_new
+                        
+                        authors[i]['channels'] = channels
+                        # Update author metadata
+                        authors[i]['author_name'] = new_item.get('Title', author.get('author_name', ''))
+                        authors[i]['author_url'] = new_item.get('author_url', author.get('author_url', ''))
                         break
                 
-                if not group_exists:
-                    # New group, add all messages
-                    groups.insert(0, new_item)
+                if not author_exists:
+                    # New author with new channel
+                    new_author = {
+                        'author_id': author_id,
+                        'author_url': new_item.get('author_url', ''),
+                        'author_name': new_item.get('Title', 'Unknown Author'),
+                        'channels': [
+                            {
+                                'source': source,
+                                'Title': new_item.get('Title', ''),
+                                'Sub_Title': new_item.get('Sub_Title', ''),
+                                'icon': new_item.get('icon', ''),
+                                'messages': new_messages,
+                                'last_updated': new_item['last_updated']
+                            }
+                        ]
+                    }
+                    authors.insert(0, new_author)
                     added_count = total_new
                 
-                data["groups"] = groups
+                data["authors"] = authors
                 
                 if save_platform_data(platform, data):
                     return jsonify({
                         'success': True,
                         'platform': 'messenger',
+                        'author_id': author_id,
+                        'source': source,
                         'title': new_item.get('Title'),
                         'total_messages_sent': total_new,
                         'messages_added': added_count,
                         'duplicates_skipped': duplicate_count,
-                        'action': 'updated' if group_exists else 'created'
+                        'author_action': 'updated' if author_exists else 'created',
+                        'channel_action': 'updated' if channel_exists else 'created'
                     }), 200
             
             elif platform == 'whatsapp':
