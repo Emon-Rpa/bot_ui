@@ -193,7 +193,7 @@ fetch(url, {
 
 1. **Start the server:**
    ```bash
-   cd /home/emon/Documents/bot_ui
+   cd bot_ui
    ./venv/bin/python app.py
    ```
 

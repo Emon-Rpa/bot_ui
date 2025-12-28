@@ -27,7 +27,7 @@ A modern web application for viewing and managing messages from multiple platfor
 ### 1. Install Dependencies
 
 ```bash
-cd /home/emon/Documents/bot_ui
+cd bot_ui
 
 # Create virtual environment (if not exists)
 python3 -m venv venv

@@ -3,6 +3,7 @@ from flask_cors import CORS
 import json
 import os
 from datetime import datetime
+from cleanup_unknown_timestamps import cleanup_data_structure
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
@@ -33,6 +34,13 @@ def load_platform_data(platform):
                         print(f"Number of authors: {len(data['authors'])}")
                     if 'channels' in data:
                         print(f"Number of channels: {len(data['channels'])}")
+                    
+                    # Automate cleanup of 'Unknown' timestamps
+                    data, was_modified = cleanup_data_structure(data)
+                    if was_modified:
+                        print(f"Automated cleanup: Removed unknown timestamps from {platform} data")
+                        # Explicitly save the cleaned data back to ensure it's effective for future loads
+                        save_platform_data(platform, data)
                 return data
         else:
             # Return empty structure based on platform
@@ -215,6 +223,9 @@ def handle_messages():
             data = load_platform_data(platform)
             if not data:
                 return jsonify({'error': 'Invalid platform'}), 400
+            
+            # Ensure new input data is also cleaned before processing
+            new_item, _ = cleanup_data_structure(new_item)
             
             new_item['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             

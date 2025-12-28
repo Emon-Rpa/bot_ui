@@ -6,6 +6,7 @@ Script to add the new messenger data with channel/group structure
 import json
 import os
 from datetime import datetime
+from cleanup_unknown_timestamps import cleanup_data_structure
 
 MESSENGER_FILE = 'messenger_groups.json'
 
@@ -258,6 +259,9 @@ def add_new_data():
         }
         data['authors'].insert(0, new_author)
         print(f"Created new author: {new_data['Title']}")
+    
+    # Final automated cleanup before saving
+    data, _ = cleanup_data_structure(data)
     
     # Save
     with open(MESSENGER_FILE, 'w', encoding='utf-8') as f:

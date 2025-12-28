@@ -13,7 +13,7 @@ Complete guide to deploy your Multi-Platform Message Viewer to Render.com for fr
 ### 1.1 Initialize Git (if not already done)
 
 ```bash
-cd /home/emon/Documents/bot_ui
+cd bot_ui
 
 # Initialize git repository
 git init
